@@ -1,97 +1,43 @@
-from telegram.ext import Updater, CommandHandler
-import requests
-from bs4 import BeautifulSoup
-import re
-
-# =========================
-# CONFIG
-# =========================
+from flask import Flask, request
+import telegram
 import os
+
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 CHANNEL_USERNAME = os.getenv("CHANNEL_USERNAME")
 AFFILIATE_TAG = os.getenv("AFFILIATE_TAG")
-# =========================
-# POST FUNCTION
-# =========================
-def post(update, context):
-    if not context.args:
-        update.message.reply_text("Use: /post AmazonLink")
-        return
 
-    url = context.args[0]
+bot = telegram.Bot(token=BOT_TOKEN)
+app = Flask(__name__)
 
-    headers = {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"
-    }
+@app.route("/", methods=["GET"])
+def index():
+    return "Bot is running"
 
-    r = requests.get(url, headers=headers, allow_redirects=True)
-    soup = BeautifulSoup(r.text, "html.parser")
+@app.route("/webhook", methods=["POST"])
+def webhook():
+    data = request.get_json(force=True)
+    if "message" in data:
+        chat_id = data["message"]["chat"]["id"]
+        text = data["message"].get("text", "")
 
-    title_tag = soup.select_one("#productTitle")
-    title = title_tag.text.strip() if title_tag else "Product"
-
-    price_tag = soup.select_one("span.a-price-whole")
-    deal_price = price_tag.text.replace(",", "").strip() if price_tag else None
-
-    mrp_tag = soup.select_one("span.a-text-price span.a-offscreen")
-    mrp_price = mrp_tag.text.replace("₹", "").replace(",", "").strip() if mrp_tag else None
-
-    discount = ""
-    if deal_price and mrp_price:
-        try:
-            discount_percent = round(
-                (int(mrp_price) - int(deal_price)) / int(mrp_price) * 100
+        if text.startswith("/start"):
+            bot.send_message(
+                chat_id=chat_id,
+                text="🤖 Bot is live!\nUse /post AmazonLink"
             )
-            discount = f"📉 Discount: {discount_percent}% OFF"
-        except:
-            discount = ""
 
-    image_tag = soup.select_one("#imgTagWrapperId img")
-    image_url = image_tag["src"] if image_tag else None
+        elif text.startswith("/post"):
+            try:
+                link = text.split(" ", 1)[1]
+                final_link = f"{link}?tag={AFFILIATE_TAG}"
+                bot.send_message(
+                    chat_id=chat_id,
+                    text=f"✅ Affiliate Link:\n{final_link}"
+                )
+            except:
+                bot.send_message(chat_id=chat_id, text="❌ Use: /post AmazonLink")
 
-    url = re.sub(r"[?&]tag=[^&]+", "", url)
-    if "?" in url:
-        url += "&tag=" + AFFILIATE_TAG
-    else:
-        url += "?tag=" + AFFILIATE_TAG
+    return "ok"
 
-    caption = f"""🔥 Deal Alert 🔥
-
-📦 {title}
-
-💰 Deal Price: ₹{deal_price if deal_price else "Check Link"}
-🏷️ MRP: ₹{mrp_price if mrp_price else "Check Link"}
-{discount}
-
-👉 Buy Now: {url}
-
-⚡ Limited Time Offer
-"""
-
-    if image_url:
-        context.bot.send_photo(
-            chat_id=CHANNEL_USERNAME,
-            photo=image_url,
-            caption=caption
-        )
-    else:
-        context.bot.send_message(
-            chat_id=CHANNEL_USERNAME,
-            text=caption
-        )
-
-    update.message.reply_text("✅ Deal posted with image & discount")
-
-# =========================
-# BOT START (MOST IMPORTANT)
-# =========================
-updater = Updater(BOT_TOKEN, use_context=True)
-dp = updater.dispatcher
-
-dp.add_handler(CommandHandler("post", post))
-
-updater.start_polling()
-print("🤖 Bot is running...")
-updater.idle()
-
-
+if __name__ == "__main__":
+    app.run(host="0.0.0.0", port=10000)

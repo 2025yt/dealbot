@@ -6,9 +6,10 @@ import re
 # =========================
 # CONFIG
 # =========================
-BOT_TOKEN = "8289591348:AAFIsZ1zgzyBbfyMozYF9GXmi3hjvQzVj64"
-CHANNEL_USERNAME = "@Loot_Deals_2026"
-AFFILIATE_TAG = "lootdeal0b9-21"
+import os
+BOT_TOKEN = os.getenv("8289591348:AAFIsZ1zgzyBbfyMozYF9GXmi3hjvQzVj64")
+CHANNEL_USERNAME = os.getenv("@Loot_Deals_2026")
+AFFILIATE_TAG = os.getenv("lootdeal0b9-21")
 # =========================
 # POST FUNCTION
 # =========================
@@ -92,3 +93,4 @@ dp.add_handler(CommandHandler("post", post))
 updater.start_polling()
 print("🤖 Bot is running...")
 updater.idle()
+
